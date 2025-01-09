@@ -73,7 +73,7 @@ router.put(
     async (req, res) => {
         try {
             const { title, description, location, date, time, maxCapacity, type, theme } = req.body;
-            const photo = req.file ? `/uploads/${req.file.filename}` : null; // Vérifie si une photo a été uploadée
+            const photo = req.file ? `uploads/${req.file.filename}` : null; // Vérifie si une photo a été uploadée
         
             const event = await Event.update(
               { title, description, location, date, time, maxCapacity, type, theme, photo },

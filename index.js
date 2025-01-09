@@ -8,18 +8,18 @@ const participantRoutes = require("./routes/participant");
 const paymentRoutes = require("./routes/payment");
 const ticketRoutes = require("./routes/ticket");
 const cors = require('cors');
+
 const app = express();
 const path = require("path");
 app.use(bodyParser.json());
 
 app.use(cors())
 
+
+
+
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-
-
-
-
 app.use("/auth", authRoutes);
 app.use("/events", eventRoutes);
 app.use("/payments", paymentRoutes);

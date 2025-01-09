@@ -1,77 +1,92 @@
 const express = require('express');
-const stripe = require('../config/stripe');  // Assurez-vous d'avoir configuré Stripe dans config/stripe.js
+const paypal = require('paypal-rest-sdk'); // Assurez-vous d'avoir installé paypal-rest-sdk
 const router = express.Router();
-const { User, Event, Ticket } = require('..');  // Importer les modèles
-  // Stripe
-// Route pour créer un paiement
-router.post('/payment', async (req, res) => {
-    try {
-        const { amount, currency = 'usd', description } = req.body;
 
-        // Créer un PaymentIntent sur Stripe
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount,  // Montant à payer en cents (ex : 10.00$ -> 1000)
-            currency,  // Monnaie, par exemple 'usd'
-            description,  // Description du paiement (par exemple, "Billet pour un événement")
-            payment_method_types: ['card'],  // Type de méthode de paiement (carte de crédit)
-        });
-
-        // Retourner le secret client (utilisé dans le frontend pour finaliser le paiement)
-        res.status(200).json({ clientSecret: paymentIntent.client_secret });
-    } catch (error) {
-        console.error("Erreur lors de la création du paiement :", error);
-        res.status(500).json({ error: 'Erreur interne lors du traitement du paiement.' });
-    }
+// Configuration de PayPal (remplacez par vos informations)
+paypal.configure({
+  mode: 'sandbox', // Passez à 'live' en production
+  client_id: 'AaoAiRjuXHF7LH0KY9Pilzd_dbArjsqDzoIfNTLwzmpPaziNs5dxlWtTUIOobAGrHvK5Vc-Pn2JyQRKH', // Remplacez par votre client ID PayPal
+  client_secret: 'EDHAYTg5HVKALExo4ndTP8NdnxnVHZDM5XCCLIklFx7GcQE-1vjcsa2TkmK7XG5FO9U0-36yq1sHXeBj', // Remplacez par votre secret PayPal
 });
 
+// Route pour créer un paiement PayPal
+router.post('/payment', (req, res) => {
+  const { amount, currency = 'USD', description } = req.body;
 
-router.post('/purchase', async (req, res) => {
-    try {
-        const { eventId, userId, amount, token, ticketType } = req.body;
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'Montant invalide.' });
+  }
 
-        // 1. Vérifier si l'événement existe
-        const event = await Event.findByPk(eventId);
-        if (!event) {
-            return res.status(404).json({ error: 'Événement non trouvé.' });
-        }
+  const create_payment_json = {
+    intent: 'sale',
+    payer: {
+      payment_method: 'paypal',
+    },
+    redirect_urls: {
+      return_url: 'http://localhost:3000/payments/success', // URL de retour après le paiement réussi
+      cancel_url: 'http://localhost:3000/payments/cancel', // URL si l'utilisateur annule le paiement
+    },
+    transactions: [
+      {
+        amount: {
+          total: amount.toString(), // Montant en string
+          currency: currency,
+        },
+        description: description || 'Paiement pour un billet',
+      },
+    ],
+  };
 
-        // Vérifier la capacité de l'événement
-        const totalTicketsSold = await Ticket.count({ where: { eventId } });
-        if (totalTicketsSold >= event.capacity) {
-            return res.status(400).json({ error: 'Cet événement est complet.' });
-        }
-
-        // 2. Créer le PaymentIntent avec Stripe
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount,  // Montant à payer en cents
-            currency: 'usd',
-            payment_method: token,  // Token Stripe obtenu
-            confirmation_method: 'manual',
-            confirm: true,
-        });
-
-        // 3. Vérifier le statut du paiement
-        if (paymentIntent.status === 'succeeded') {
-            // 4. Créer le ticket pour l'utilisateur
-            const ticket = await Ticket.create({
-                eventId,
-                userId,
-                type: ticketType,
-                status: 'paid',
-                price: amount,
-                purchasedAt: new Date(),
-            });
-
-            // 5. Réponse avec le ticket créé
-            res.status(200).json({ message: 'Paiement réussi et billet créé!', ticket });
-        } else {
-            res.status(400).json({ error: 'Le paiement a échoué.' });
-        }
-    } catch (error) {
-        console.error('Erreur lors de l\'achat du billet :', error);
-        res.status(500).json({ error: 'Erreur interne lors de l\'achat du billet.', details: error.message });
+  paypal.payment.create(create_payment_json, (error, payment) => {
+    if (error) {
+      console.error('Erreur PayPal:', error.response || error.message || error);
+      res.status(500).json({ error: 'Erreur lors de la création du paiement.' });
+    } else {
+      const approvalUrl = payment.links.find((link) => link.rel === 'approval_url');
+      res.status(200).json({ approvalUrl: approvalUrl.href });
     }
+  });
+  
 });
-
+router.get('/success', async (req, res) => {
+    const payerId = req.query.PayerID;
+    const paymentId = req.query.paymentId;
+  
+    if (!payerId || !paymentId) {
+      return res.status(400).json({ error: 'Données manquantes.' });
+    }
+  
+    const execute_payment_json = {
+      payer_id: payerId,
+      transactions: [
+        {
+          amount: {
+            total: req.query.amount, // Montant envoyé en paramètre de l'URL
+            currency: 'USD',
+          },
+        },
+      ],
+    };
+  
+    paypal.payment.execute(paymentId, execute_payment_json, async (error, payment) => {
+      if (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erreur lors de l\'exécution du paiement.' });
+      } else {
+        // Créer un ticket après paiement réussi
+        const ticket = await Ticket.create({
+          eventId: req.query.eventId,
+          userId: req.query.userId,
+          type: req.query.ticketType || 'Standard',
+          status: 'paid',
+          price: req.query.amount,
+          purchasedAt: new Date(),
+        });
+  
+        res.status(200).json({ message: 'Paiement réussi et billet créé !', ticket });
+      }
+    });
+  });
+  
 
 module.exports = router;
