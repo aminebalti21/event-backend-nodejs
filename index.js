@@ -7,6 +7,7 @@ const eventRoutes = require("./routes/event");
 const participantRoutes = require("./routes/participant");
 const paymentRoutes = require("./routes/payment");
 const ticketRoutes = require("./routes/ticket");
+const usersRoutes = require("./routes/users");
 const cors = require('cors');
 require('dotenv').config()
 const app = express();
@@ -47,7 +48,7 @@ app.get('/cancel-order', (req, res) => {
 
 
 
-
+app.use('/users', usersRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/auth", authRoutes);
 app.use("/events", eventRoutes);
