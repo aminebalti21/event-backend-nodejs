@@ -8,13 +8,42 @@ const participantRoutes = require("./routes/participant");
 const paymentRoutes = require("./routes/payment");
 const ticketRoutes = require("./routes/ticket");
 const cors = require('cors');
-
+require('dotenv').config()
 const app = express();
 const path = require("path");
 app.use(bodyParser.json());
 
 app.use(cors())
 
+app.set('view engine', 'ejs')
+
+app.get('/', (req, res) => {
+    res.render('index')
+})
+
+app.post('/payment', async(req, res) => {
+    try {
+        const url = await paypal.createOrder()
+
+        res.redirect(url)
+    } catch (error) {
+        res.send('Error: ' + error)
+    }
+})
+
+app.get('/complete-order', async (req, res) => {
+    try {
+        await paypal.capturePayment(req.query.token)
+
+        res.send('Course purchased successfully')
+    } catch (error) {
+        res.send('Error: ' + error)
+    }
+})
+
+app.get('/cancel-order', (req, res) => {
+    res.redirect('/')
+})
 
 
 

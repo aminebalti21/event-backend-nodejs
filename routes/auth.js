@@ -38,5 +38,4 @@ router.post("/login", async (req, res) => { // Changer GET en POST
         res.status(400).json({ error: "Erreur lors de la connexion." });
     }
 });
-
 module.exports = router;
