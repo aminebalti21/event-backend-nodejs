@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         price: {
             type: DataTypes.INTEGER, // Prix en cents
-            allowNull: false
+            allowNull: true
         },
         purchasedAt: {
             type: DataTypes.DATE,
