@@ -22,6 +22,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.ENUM('Inscrit', 'En Attente', 'Annulé'),
             defaultValue: 'Inscrit',
         },
+        price: { // Ajout du prix pour chaque ticket
+            type: DataTypes.INTEGER, // Le prix sera stocké en centimes
+            allowNull: false
+        },
     });
 
     // Définir les relations

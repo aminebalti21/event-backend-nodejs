@@ -20,6 +20,7 @@ app.use(cors())
 
 
 
+
 app.use('/users', usersRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/auth", authRoutes);

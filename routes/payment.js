@@ -1,14 +1,14 @@
 const express = require('express');
 const stripe = require('../config/stripe');
 const db = require('../config/database');
-const { Ticket ,Event,User } = require('../models');
+const { Ticket, Event, User } = require('../models');
 const router = express.Router();
 
 router.post('/create-checkout-session', async (req, res) => {
     const { ticketType, eventId, userId } = req.body;
 
     try {
-        // Récupérez les détails du billet et calculez le prix.
+        // Récupérez le prix du billet en fonction du type et de l'événement
         const price = await calculateTicketPrice(ticketType, eventId);
 
         const session = await stripe.checkout.sessions.create({
@@ -21,13 +21,13 @@ router.post('/create-checkout-session', async (req, res) => {
                             name: `Ticket ${ticketType}`,
                             description: `Ticket pour l'événement ${eventId}`,
                         },
-                        unit_amount: price * 100, // Le montant doit être en cents.
+                        unit_amount: price,  // Le montant doit être en centimes.
                     },
                     quantity: 1,
                 },
             ],
             mode: 'payment',
-            success_url: 'http://localhost:4200/payment-success',
+            success_url: 'http://localhost:4200/participant',
             cancel_url: 'http://localhost:4200/payment-cancel',
         });
 
@@ -37,6 +37,7 @@ router.post('/create-checkout-session', async (req, res) => {
         res.status(500).json({ error: 'Erreur lors de la création de la session de paiement' });
     }
 });
+
 router.post('/save-ticket', async (req, res) => {
     const { eventId, userId, type, status, price, purchasedAt } = req.body;
 
@@ -60,12 +61,31 @@ router.post('/save-ticket', async (req, res) => {
     }
 });
 
-
 module.exports = router;
 
 async function calculateTicketPrice(ticketType, eventId) {
-    // Exemple : obtenir le prix depuis une base de données.
-    // Ajustez selon votre logique métier.
-    const basePrice = 100; // Exemple de prix de base.
-    return basePrice * (ticketType === 'VIP' ? 2 : 1);
+    // Récupérer l'événement dans la base de données en fonction de l'eventId
+    const event = await Event.findByPk(eventId);
+
+    if (!event) {
+        throw new Error('Événement non trouvé');
+    }
+
+    // Calcul du prix en fonction du type de ticket
+    let price;
+
+    switch (ticketType) {
+        case 'Premium':
+            price = event.pricePremium || 60;  // Si le prix n'est pas défini, utilise un prix par défaut
+            break;
+        case 'VIP':
+            price = event.priceVIP || 100;  // Si le prix n'est pas défini, utilise un prix par défaut
+            break;
+        case 'Standard':
+        default:
+            price = event.priceStandard || 30;  // Si le prix n'est pas défini, utilise un prix par défaut
+            break;
+    }
+
+    return price;
 }

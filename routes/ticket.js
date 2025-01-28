@@ -1,6 +1,6 @@
 const express = require("express");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { Ticket, Event, Participant } = require("../models");
+const { sequelize, Ticket, Event, participant } = require("../models");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
@@ -52,5 +52,42 @@ router.post("/:participantId/payment", authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Erreur lors du paiement.", details: error.message });
     }
 });
+router.get('/tickets-by-type', async (req, res) => {
+    try {
+      const tickets = await Ticket.findAll({
+        attributes: ['type', [sequelize.fn('COUNT', sequelize.col('type')), 'count']],
+        group: ['type'],
+      });
+      res.json(tickets);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erreur lors du chargement des tickets par type.' });
+    }
+  });
+  
+  router.get('/tickets-by-status', async (req, res) => {
+    try {
+      const tickets = await Ticket.findAll({
+        attributes: ['status', [sequelize.fn('COUNT', sequelize.col('status')), 'count']],
+        group: ['status'],
+      });
+      res.json(tickets);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erreur lors du chargement des statuts des tickets.' });
+    }
+  });
+  router.get('/stats', async (req, res) => {
+    try {
+      
+      const totalPaid = await Ticket.sum('price');
+  
+      res.json({ totalParticipants, totalEvents, totalPaid });
+    } catch (err) {
+      res.status(500).send('Erreur lors de la récupération des statistiques.');
+    }
+  });
+  
+  
 
 module.exports = router;

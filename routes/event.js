@@ -64,6 +64,28 @@ router.get("/", async (req, res) => {
     }
 });
 
+
+// Lire un événement par son ID
+router.get("/:id", async (req, res) => {
+    try {
+        const eventId = req.params.id;
+
+        // Chercher l'événement dans la base de données
+        const event = await Event.findByPk(eventId); // Utilisation de findByPk pour trouver l'événement par son ID
+
+        if (!event) {
+            return res.status(404).json({ error: "Événement non trouvé." });
+        }
+
+        // Retourner l'événement trouvé
+        res.json(event);
+    } catch (error) {
+        console.error("Erreur lors de la récupération de l'événement : ", error);
+        res.status(400).json({ error: "Erreur lors de la récupération de l'événement." });
+    }
+});
+
+
 // Mettre à jour un événement (Organisateurs uniquement)
 router.put(
     "/:id",
@@ -97,5 +119,18 @@ router.delete("/:id", authenticateToken, authorizeRole(["Admin", "Organisateur"]
         res.status(400).json({ error: "Erreur lors de la suppression de l'événement." });
     }
 });
+
+router.get('/stats', async (req, res) => {
+    try {
+     
+      const totalEvents = await Event.count();
+      
+  
+      res.json({ totalParticipants, totalEvents, totalPaid });
+    } catch (err) {
+      res.status(500).send('Erreur lors de la récupération des statistiques.');
+    }
+  });
+  
 
 module.exports = router;
