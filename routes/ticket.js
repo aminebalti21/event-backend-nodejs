@@ -88,6 +88,22 @@ router.get('/tickets-by-type', async (req, res) => {
     }
   });
   
-  
+  // Récupérer les tickets de l'utilisateur connecté
+  router.get("/my-tickets", authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const tickets = await Ticket.findAll({
+            where: { userId, status: "paid" },
+            include: [{ model: Event, attributes: ["title", "date", "location"] }]
+        });
+
+        res.status(200).json(tickets);
+    } catch (error) {
+        console.error("Erreur lors de la récupération des tickets :", error);
+        res.status(500).json({ error: "Erreur serveur lors de la récupération des tickets." });
+    }
+});
+
 
 module.exports = router;
